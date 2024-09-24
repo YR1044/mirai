@@ -14,6 +14,7 @@ import net.mamoe.mirai.utils.Services
 
 internal object MiraiCoreServices {
 
+    @Suppress("RemoveRedundantQualifierName")
     @OptIn(InternalEventMechanism::class)
     fun registerAll() {
         Services.register(
@@ -62,6 +63,10 @@ internal object MiraiCoreServices {
         ) { net.mamoe.mirai.internal.message.protocol.impl.MarketFaceProtocol() }
         Services.register(
             msgProtocol,
+            "net.mamoe.mirai.internal.message.protocol.impl.SuperFaceProtocol"
+        ) { net.mamoe.mirai.internal.message.protocol.impl.SuperFaceProtocol() }
+        Services.register(
+            msgProtocol,
             "net.mamoe.mirai.internal.message.protocol.impl.MusicShareProtocol"
         ) { net.mamoe.mirai.internal.message.protocol.impl.MusicShareProtocol() }
         Services.register(
@@ -80,6 +85,10 @@ internal object MiraiCoreServices {
             msgProtocol,
             "net.mamoe.mirai.internal.message.protocol.impl.RichMessageProtocol"
         ) { net.mamoe.mirai.internal.message.protocol.impl.RichMessageProtocol() }
+        Services.register(
+            msgProtocol,
+            "net.mamoe.mirai.internal.message.protocol.impl.ShortVideoProtocol"
+        ) { net.mamoe.mirai.internal.message.protocol.impl.ShortVideoProtocol() }
         Services.register(
             msgProtocol,
             "net.mamoe.mirai.internal.message.protocol.impl.TextProtocol"
@@ -120,5 +129,10 @@ internal object MiraiCoreServices {
             "net.mamoe.mirai.auth.DefaultBotAuthorizationFactory",
             "net.mamoe.mirai.internal.network.auth.DefaultBotAuthorizationFactoryImpl"
         ) { net.mamoe.mirai.internal.network.auth.DefaultBotAuthorizationFactoryImpl() }
+
+        Services.register(
+            "net.mamoe.mirai.utils.InternalProtocolDataExchange",
+            "net.mamoe.mirai.internal.utils.MiraiProtocolInternal\$Exchange"
+        ) { net.mamoe.mirai.internal.utils.MiraiProtocolInternal.Exchange() }
     }
 }

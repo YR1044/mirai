@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2022 Mamoe Technologies and contributors.
+ * Copyright 2019-2023 Mamoe Technologies and contributors.
  *
  * 此源代码的使用受 GNU AFFERO GENERAL PUBLIC LICENSE version 3 许可证的约束, 可以在以下链接找到该许可证.
  * Use of this source code is governed by the GNU AGPLv3 license that can be found through the following link.
@@ -7,7 +7,10 @@
  * https://github.com/mamoe/mirai/blob/dev/LICENSE
  */
 
-@file:OptIn(ConsoleExperimentalApi::class)
+@file:OptIn(
+    ConsoleExperimentalApi::class, ConsoleFrontEndImplementation::class, ConsoleInternalApi::class,
+    MiraiInternalApi::class, MiraiExperimentalApi::class
+)
 
 package net.mamoe.mirai.console.internal
 
@@ -17,6 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import me.him188.kotlin.dynamic.delegation.dynamicDelegation
 import net.mamoe.mirai.Bot
+import net.mamoe.mirai.console.ConsoleFrontEndImplementation
 import net.mamoe.mirai.console.MalformedMiraiConsoleImplementationError
 import net.mamoe.mirai.console.MiraiConsole
 import net.mamoe.mirai.console.MiraiConsoleImplementation
@@ -42,6 +46,7 @@ import net.mamoe.mirai.console.internal.data.builtins.AutoLoginConfig.Account.Pa
 import net.mamoe.mirai.console.internal.data.builtins.DataScope
 import net.mamoe.mirai.console.internal.data.builtins.LoggerConfig
 import net.mamoe.mirai.console.internal.data.builtins.PluginDependenciesConfig
+import net.mamoe.mirai.console.internal.enduserreadme.EndUserReadmeProcessor
 import net.mamoe.mirai.console.internal.extension.GlobalComponentStorage
 import net.mamoe.mirai.console.internal.extension.GlobalComponentStorageImpl
 import net.mamoe.mirai.console.internal.logging.LoggerControllerImpl
@@ -57,10 +62,7 @@ import net.mamoe.mirai.console.permission.PermissionService.Companion.permit
 import net.mamoe.mirai.console.permission.RootPermission
 import net.mamoe.mirai.console.plugin.PluginManager
 import net.mamoe.mirai.console.plugin.name
-import net.mamoe.mirai.console.util.AnsiMessageBuilder
-import net.mamoe.mirai.console.util.ConsoleExperimentalApi
-import net.mamoe.mirai.console.util.ConsoleInput
-import net.mamoe.mirai.console.util.SemVersion
+import net.mamoe.mirai.console.util.*
 import net.mamoe.mirai.console.util.cast
 import net.mamoe.mirai.event.broadcast
 import net.mamoe.mirai.utils.*
@@ -174,7 +176,6 @@ internal class MiraiConsoleImplementationBridge(
         return MiraiLogger.Factory.create(MiraiConsole::class, identity)
     }
 
-    @Suppress("RemoveRedundantBackticks")
     internal fun doStart() {
         externalImplementation.preStart()
 
@@ -365,6 +366,10 @@ ___  ____           _   _____                       _
             mainLogger.info { "${pluginManager.plugins.count { it.isEnabled }} plugin(s) enabled." }
         }
 
+        phase("end-user-readme") {
+            EndUserReadmeProcessor.process(this)
+        }
+
         phase("auto-login bots") {
             runBlocking {
                 val config = DataScope.get<AutoLoginConfig>()
@@ -430,7 +435,13 @@ ___  ____           _   _____                       _
                         }
                     }.onFailure {
                         mainLogger.error(it)
-                        bot.close()
+
+                        runCatching {
+                            bot.close()
+                        }.onFailure { err ->
+                            mainLogger.error("Error in closing bot", err)
+                        }
+
                         launch {
                             AutoLoginEvent.Failure(bot = bot, cause = it).broadcast()
                         }

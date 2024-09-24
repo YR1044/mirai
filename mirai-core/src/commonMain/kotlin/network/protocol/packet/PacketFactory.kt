@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2022 Mamoe Technologies and contributors.
+ * Copyright 2019-2023 Mamoe Technologies and contributors.
  *
  * 此源代码的使用受 GNU AFFERO GENERAL PUBLIC LICENSE version 3 许可证的约束, 可以在以下链接找到该许可证.
  * Use of this source code is governed by the GNU AGPLv3 license that can be found through the following link.
@@ -18,6 +18,7 @@ import net.mamoe.mirai.internal.network.protocol.packet.chat.*
 import net.mamoe.mirai.internal.network.protocol.packet.chat.image.ImgStore
 import net.mamoe.mirai.internal.network.protocol.packet.chat.image.LongConn
 import net.mamoe.mirai.internal.network.protocol.packet.chat.receive.*
+import net.mamoe.mirai.internal.network.protocol.packet.chat.video.PttCenterSvr
 import net.mamoe.mirai.internal.network.protocol.packet.chat.voice.PttStore
 import net.mamoe.mirai.internal.network.protocol.packet.list.FriendList
 import net.mamoe.mirai.internal.network.protocol.packet.list.ProfileService
@@ -30,7 +31,6 @@ import net.mamoe.mirai.internal.network.protocol.packet.summarycard.ChangeFriend
 import net.mamoe.mirai.internal.network.protocol.packet.summarycard.SummaryCard
 import net.mamoe.mirai.utils.DeprecatedSinceMirai
 import net.mamoe.mirai.utils.MiraiLoggerWithSwitch
-import kotlin.jvm.JvmName
 
 internal sealed class PacketFactory<TPacket : Packet?> {
     /**
@@ -152,6 +152,8 @@ internal object KnownPacketFactories {
         PttStore.GroupPttUp,
         PttStore.GroupPttDown,
         PttStore.C2CPttDown,
+        PttCenterSvr.GroupShortVideoUpReq,
+        PttCenterSvr.ShortVideoDownReq,
         LongConn.OffPicUp,
 //        LongConn.OffPicDown,
         TroopManagement.EditSpecialTitle,
@@ -165,6 +167,7 @@ internal object KnownPacketFactories {
         TroopManagement.Kick,
         TroopManagement.SwitchAnonymousChat,
         TroopEssenceMsgManager.SetEssence,
+        TroopEssenceMsgManager.RemoveEssence,
         NudgePacket,
         Heartbeat.Alive,
         PbMessageSvc.PbMsgWithDraw,

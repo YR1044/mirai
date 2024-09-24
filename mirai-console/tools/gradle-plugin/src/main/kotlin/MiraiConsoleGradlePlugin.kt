@@ -153,6 +153,7 @@ public class MiraiConsoleGradlePlugin : Plugin<Project> {
                 val compilations = target.compilations.filter { it.name == MAIN_COMPILATION_NAME }
 
                 compilations.forEach {
+                    @Suppress("DEPRECATION") // We need to support older Kotlin versions
                     dependsOn(it.compileKotlinTask)
                     from(it.output.allOutputs)
                 }
@@ -230,6 +231,7 @@ public class MiraiConsoleGradlePlugin : Plugin<Project> {
                     }
                 }
                 runConsole.standardInput = System.`in`
+                runConsole.jvmArgs("-Dmirai.console.skip-end-user-readme")
 
                 buildPluginTasks.forEach { runConsole.dependsOn(it.first) }
                 miraiExtension.consoleTestRuntimeConf.forEach { it.invoke(runConsole) }

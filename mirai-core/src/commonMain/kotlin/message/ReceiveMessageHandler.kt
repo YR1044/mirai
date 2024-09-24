@@ -24,7 +24,10 @@ import net.mamoe.mirai.internal.message.source.*
 import net.mamoe.mirai.internal.network.protocol.data.proto.ImMsgBody
 import net.mamoe.mirai.internal.network.protocol.data.proto.MsgComm
 import net.mamoe.mirai.message.data.*
+import net.mamoe.mirai.utils.castOrNull
+import net.mamoe.mirai.utils.structureToString
 import net.mamoe.mirai.utils.toLongUnsigned
+import net.mamoe.mirai.utils.warning
 
 /**
  * 只在手动构造 [OfflineMessageSource] 时调用
@@ -77,7 +80,17 @@ internal suspend fun MsgComm.Msg.toMessageChainOnline(
         MessageSourceKind.GROUP -> msgHead.groupInfo?.groupCode ?: 0
         else -> 0
     }
-    return listOf(this).toMessageChainOnline(bot, groupId, kind, refineContext, facade)
+
+    return listOf(this).toMessageChainOnline(
+        bot,
+        groupId,
+        kind,
+        refineContext.merge(SimpleRefineContext(
+            RefineContextKey.MessageSourceKind to kind,
+            RefineContextKey.GroupIdOrZero to groupId
+        ), false),
+        facade
+    )
 }
 
 //internal fun List<MsgComm.Msg>.toMessageChainOffline(
@@ -105,18 +118,51 @@ private fun List<MsgComm.Msg>.toMessageChain(
     messageSourceKind: MessageSourceKind,
     facade: MessageProtocolFacade = MessageProtocolFacade,
 ): MessageChain {
+    try {
+        return toMessageChainImpl(bot, groupIdOrZero, onlineSource, messageSourceKind, facade)
+    } catch (e: Exception) {
+        throw IllegalStateException(
+            "Failed to transform internal message to facade message, msg=${this@toMessageChain.structureToString()}",
+            e
+        )
+    }
+}
+
+
+private fun List<MsgComm.Msg>.toMessageChainImpl(
+    bot: Bot,
+    groupIdOrZero: Long,
+    onlineSource: Boolean?,
+    messageSourceKind: MessageSourceKind,
+    facade: MessageProtocolFacade = MessageProtocolFacade,
+): MessageChain {
     val messageList = this
 
 
     val builder = MessageChainBuilder(messageList.sumOf { it.msgBody.richText.elems.size })
 
-    if (onlineSource != null) {
-        builder.add(ReceiveMessageTransformer.createMessageSource(bot, onlineSource, messageSourceKind, messageList))
+    val source = if (onlineSource != null) {
+        ReceiveMessageTransformer.createMessageSource(bot, onlineSource, messageSourceKind, messageList)
+    } else null
+    if (source != null) builder.add(source)
+
+    val fromId = source?.fromId ?: firstOrNull()?.msgHead?.fromUin
+    if (fromId == null) {
+        bot.logger.warning {
+            "Cannot determine fromId from message source and msg elements, " +
+                    "source: $source, elements: ${this.joinToString(", ")}"
+        }
     }
 
-
     messageList.forEach { msg ->
-        facade.decode(msg.msgBody.richText.elems, groupIdOrZero, messageSourceKind, bot, builder, msg)
+        facade.decode(
+            msg.msgBody.richText.elems,
+            groupIdOrZero,
+            messageSourceKind,
+            bot,
+            builder,
+            msg
+        )
     }
 
     for (msg in messageList) {

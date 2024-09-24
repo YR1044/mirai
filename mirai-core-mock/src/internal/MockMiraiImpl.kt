@@ -22,6 +22,7 @@ import net.mamoe.mirai.event.broadcast
 import net.mamoe.mirai.event.events.*
 import net.mamoe.mirai.internal.MiraiImpl
 import net.mamoe.mirai.internal.network.components.EventDispatcher
+import net.mamoe.mirai.internal.utils.MiraiProtocolInternal
 import net.mamoe.mirai.message.action.Nudge
 import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.mock.MockActions
@@ -29,10 +30,7 @@ import net.mamoe.mirai.mock.MockBotFactory
 import net.mamoe.mirai.mock.contact.MockGroup
 import net.mamoe.mirai.mock.database.queryMessageInfo
 import net.mamoe.mirai.mock.database.removeMessageInfo
-import net.mamoe.mirai.mock.internal.contact.AQQ_RECALL_FAILED_MESSAGE
-import net.mamoe.mirai.mock.internal.contact.MockFriendImpl
-import net.mamoe.mirai.mock.internal.contact.MockImage
-import net.mamoe.mirai.mock.internal.contact.MockStrangerImpl
+import net.mamoe.mirai.mock.internal.contact.*
 import net.mamoe.mirai.mock.internal.msgsrc.registerMockMsgSerializers
 import net.mamoe.mirai.mock.utils.mock
 import net.mamoe.mirai.mock.utils.simpleMemberInfo
@@ -42,6 +40,7 @@ internal class MockMiraiImpl : MiraiImpl() {
     companion object {
         init {
             registerMockMsgSerializers()
+            registerMockServices()
         }
     }
 
@@ -297,6 +296,11 @@ internal class MockMiraiImpl : MiraiImpl() {
     }
 
     override suspend fun sendNudge(bot: Bot, nudge: Nudge, receiver: Contact): Boolean {
+        if (!bot.configuration.protocol.isNudgeSupported) {
+            throw UnsupportedOperationException("nudge is supported only with protocol ${
+                MiraiProtocolInternal.protocols.filter { it.value.supportsNudge }.map { it.key }
+            }")
+        }
         NudgeEvent(
             from = bot,
             target = nudge.target,

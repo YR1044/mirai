@@ -11,10 +11,7 @@
 
 package net.mamoe.mirai.utils
 
-import kotlinx.serialization.BinaryFormat
-import kotlinx.serialization.DeserializationStrategy
-import kotlinx.serialization.KSerializer
-import kotlinx.serialization.StringFormat
+import kotlinx.serialization.*
 import kotlinx.serialization.descriptors.*
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
@@ -23,6 +20,7 @@ import kotlin.jvm.JvmName
 public fun SerialDescriptor.copy(newName: String): SerialDescriptor =
     buildClassSerialDescriptor(newName) { takeElementsFrom(this@copy) }
 
+@OptIn(ExperimentalSerializationApi::class) // bad but there is no other solution
 public fun ClassSerialDescriptorBuilder.takeElementsFrom(descriptor: SerialDescriptor) {
     with(descriptor) {
         repeat(descriptor.elementsCount) { index ->
@@ -48,6 +46,7 @@ public inline fun <T, R> KSerializer<T>.map(
     }
 }
 
+@OptIn(ExperimentalSerializationApi::class)
 public inline fun <T, R> KSerializer<T>.mapPrimitive(
     serialName: String,
     crossinline deserialize: (T) -> R,
@@ -73,7 +72,12 @@ public fun <T> MiraiFile.loadNotBlankAs(
     if (!this.exists() || this.length == 0L) {
         return null
     }
-    return stringFormat.decodeFromString(serializer, this.readText())
+    return try {
+        stringFormat.decodeFromString(serializer, this.readText())
+    } catch (e: Throwable) { //broken file
+        e.printStackTrace()
+        null
+    }
 }
 
 public fun <T> MiraiFile.loadNotBlankAs(
@@ -83,6 +87,10 @@ public fun <T> MiraiFile.loadNotBlankAs(
     if (!this.exists() || this.length == 0L) {
         return null
     }
-    return binaryFormat.decodeFromByteArray(serializer, this.readBytes())
+    return try {
+        binaryFormat.decodeFromByteArray(serializer, this.readBytes())
+    } catch (e: Throwable) { //broken file
+        e.printStackTrace()
+        null
+    }
 }
-

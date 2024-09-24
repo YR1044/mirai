@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2022 Mamoe Technologies and contributors.
+ * Copyright 2019-2023 Mamoe Technologies and contributors.
  *
  * 此源代码的使用受 GNU AFFERO GENERAL PUBLIC LICENSE version 3 许可证的约束, 可以在以下链接找到该许可证.
  * Use of this source code is governed by the GNU AGPLv3 license that can be found through the following link.
@@ -11,6 +11,7 @@ package net.mamoe.mirai.internal.network.notice.group
 
 import io.ktor.utils.io.core.*
 import net.mamoe.mirai.contact.NormalMember
+import net.mamoe.mirai.contact.UserOrBot
 import net.mamoe.mirai.contact.getMember
 import net.mamoe.mirai.data.GroupHonorType
 import net.mamoe.mirai.event.events.*
@@ -218,14 +219,14 @@ internal class GroupNotificationProcessor(
         markAsConsumed()
 
         buf.read {
-            val operatorUin = readUInt().toLong()
+            val operatorUin = readInt().toUInt().toLong()
             if (operatorUin == bot.id) return
             val operator = group[operatorUin] ?: return
-            readUInt().toLong() // time
-            val length = readUShort().toInt()
+            readInt().toUInt().toLong() // time
+            val length = readShort().toUShort().toInt()
             repeat(length) {
-                val target = readUInt().toLong()
-                val timeSeconds = readUInt()
+                val target = readInt().toUInt().toLong()
+                val timeSeconds = readInt().toUInt()
                 collected += handleMuteMemberPacket(bot, group, operator, target, timeSeconds.toInt())
             }
         }
@@ -239,7 +240,7 @@ internal class GroupNotificationProcessor(
     ) = data.context {
         markAsConsumed()
         buf.read {
-            val operator = group[readUInt().toLong()] ?: return
+            val operator = group[readInt().toUInt().toLong()] ?: return
             val new = readInt() == 0
             if (group.settings.isAnonymousChatEnabledField == new) return
 
@@ -315,6 +316,7 @@ internal class GroupNotificationProcessor(
         }
     }
 
+
     /**
      * @see NudgeEvent
      * @see MemberHonorChangeEvent
@@ -324,25 +326,45 @@ internal class GroupNotificationProcessor(
     private fun NoticePipelineContext.processGeneralGrayTip(
         data: MsgType0x2DC,
     ) = data.context {
+
         val grayTip = buf.loadAs(TroopTips0x857.NotifyMsgBody.serializer(), 1).optGeneralGrayTip
         markAsConsumed()
         when (grayTip?.templId) {
             // 群戳一戳
             10043L, 1133L, 1132L, 1134L, 1135L, 1136L -> {
+                
+                fun String.findUser(): UserOrBot? {
+                    return if (this == bot.id.toString()) {
+                        group.botAsMember
+                    } else {
+                        this.findMember() ?: this.findFriendOrStranger()
+                    }
+                }
+                
                 // group nudge
                 // 预置数据，服务器将不会提供己方已知消息
                 val action = grayTip.msgTemplParam["action_str"].orEmpty()
-                val from = grayTip.msgTemplParam["uin_str1"]?.findMember() ?: group.botAsMember
-                val target = grayTip.msgTemplParam["uin_str2"]?.findMember() ?: group.botAsMember
+                val from = grayTip.msgTemplParam["uin_str1"]
+                val target = grayTip.msgTemplParam["uin_str2"]
                 val suffix = grayTip.msgTemplParam["suffix_str"].orEmpty()
 
-                collected += NudgeEvent(
-                    from = if (from.id == bot.id) bot else from,
-                    target = if (target.id == bot.id) bot else target,
-                    action = action,
-                    suffix = suffix,
-                    subject = group,
-                )
+                val fromUser = from?.findUser()
+                val targetUser = target?.findUser()
+
+                if (fromUser == null || targetUser == null) {
+                    markNotConsumed()
+                    logger.debug {
+                        "Cannot find from or target in Transformers528 0x14 template\ntemplId=${grayTip.templId}\nPermList=${grayTip.msgTemplParam.structureToString()}"
+                    }
+                } else {
+                    collected += NudgeEvent(
+                            from = fromUser,
+                            target = targetUser,
+                            action = action,
+                            suffix = suffix,
+                            subject = group,
+                    )
+                }
             }
             // 群签到/打卡
             10036L, 10038L -> {
